@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/segmentio/kafka-go"
@@ -32,7 +33,7 @@ type OrderRequest struct {
 	AddressDestination string
 }
 
-func Create(config ConfigOrderService) *OrderService {
+func NewOrderService(config ConfigOrderService) *OrderService {
 	return &OrderService{Config: config}
 }
 
@@ -45,14 +46,16 @@ func orderRequestHandle(r *gin.Context) {
 	}
 
 	// Create produceer
-	kafkaWriter := CreateProducer()
+	kafkaUrl := os.Getenv("kafka.bootstrapserver")
+	kafkaTopic := os.Getenv("kafka.topic.order")
+	kafkaWriter := kafka.NewWriter(kafka.WriterConfig{Brokers: []string{kafkaUrl}, Topic: kafkaTopic})
 
 	// write message to kafka
 	message, err := json.Marshal(request)
 	if err != nil {
 		log.Println("Order Service Handle Request invalid value: ", err)
 	}
-	kafkaWriter.WriteMessages(context.Background(), kafka.Message{Topic: "kafka.topic.order", Key: []byte(request.UserId), Value: message})
+	kafkaWriter.WriteMessages(context.Background(), kafka.Message{Key: []byte(request.UserId), Value: message})
 }
 
 func (s *OrderService) Serve() error {
